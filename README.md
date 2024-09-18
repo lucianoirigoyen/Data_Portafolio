@@ -5,3 +5,5 @@ In addition to that, I developed a prediction program for Formula 1 races, utili
 I have strong skills in both SQL and NoSQL databases, including MongoDB, and I’m experienced in using Excel and Jupyter for data analysis. I frequently work with Python libraries like Pandas, Seaborn, and Matplotlib for data manipulation and visualization. Additionally, I’ve built machine learning models using algorithms like Gradient Boosting Machines to tackle complex prediction tasks.
 
 With my background in data science, database management, and machine learning, I focus on creating scalable, efficient solutions that bridge the gap between technology and business needs.
+
+Feel free to look out for my job, there are many branches with different types of exercises

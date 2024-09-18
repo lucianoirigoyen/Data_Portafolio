@@ -1,87 +1,108 @@
-import pymongo
-from pymongo import MongoClient
-from typing import List, Dict
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 
-
-def get_mongo_client (host:str, port:int) -> pymongo.MongoClient:
-    return pymongo.MongoClient(host, port)
+# Écrire une fonction create_multi_index_df qui prend un DataFrame et l’utilise pour créer un 
+# nouveau DataFrame multi-indexé par « year » puis par « region ». 
+ 
+# Afin que le DataFrame soit indexé et découpé efficacement, il doit être trié par ses index. Deux 
+# méthodes sont possibles, trier le DataFrame avant de créer les nouveaux index, ou trier 
+# directement les index.
 
 #exercice1
+def create_multi_index_df(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.set_index(["year", "region"])
+    df = df.sort_index()
 
-# Écrire une fonction create_award_year_index qui crée un Index sur le champs `prizes.year` de la 
-# collection `laureates`. L’Index doit être trié dans l’ordre décroissant. Retourner le nom de l’Index 
-# créé
-def create_award_year_index(client: MongoClient) :
-    db=client.nobel
-    collection=db.laureates
-    resultat = collection.create_index([("prizes.year",-1)])
-    return resultat
+    return df
 
-# Écrire une fonction get_laureates_year qui récupère tous les lauréats de prix Nobel pour une 
-# année donné. Retourner le résultat sous forme de liste de dictionnaire
-def get_laureates_year(client: MongoClient, year: int) -> list[dict] :
-    db=client.nobel
-    collection=db.laureates
-    resultat=collection.find({"prizes.year":year})
-    return list(resultat)
-
-
+# Écrire une fonction retrieve_multi_index_data qui prend un DataFrame issu de l’exercice 
+# précédent. Retourner un DataFrame contenant uniquement les données pour l’année et la 
+# région prisent en paramètre.
 #exercice2
-
-# ecrire une fonction create_country_index qui crée un Text Index sur les champs `bornCountry` et 
-# `diedCountry` de la collection `laureates`. Retourner le nom de l’Index créé. 
- 
-# Écrire une fonction get_country_laureates qui récupère dans la base de données tous les noms, 
-# prénoms, pays de naissance et pays de mort des lauréats de prix Nobel étant nés ou morts dans 
-# un pays donné (par ex. « France »). Stocker et retourner le résultat dans une liste de dictionnaire
-def create_country_index(client: MongoClient) :
-    db=client.nobel
-    collection=db.laureates
-    resultat = collection.create_index([("bornCountry","text"),("diedCountry","text")])
-    return resultat
-
-def get_country_laureates(client: MongoClient, country: str) -> List[Dict]:
-    db = client.nobel
-    collection = db.laureates
-    text_search = {"$text": {"$search": country}}
-    projection = {"firstname": 1, "surname": 1, "bornCountry": 1, "diedCountry": 1, "_id": 0}
-    resultats = collection.find(text_search, projection)
-    return list(resultats)
-
+def retrieve_multi_index_data(df, year, region):
+    filtered_df = df[(df.index.get_level_values('year') == year) &
+                     (df.index.get_level_values('region') == region)]
+    if not filtered_df.empty:
+        return filtered_df
 
 #exercice3
+# Écrire une fonction multi_index_aggregate qui prend un DataFrame et calcule le nombre total 
+# de produit vendu et le total des ventes pour chaque année et chaque région. Arrondir les 
+# résultats à la deuxième décimale.
+def multi_index_aggregate(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.groupby(["year", "region"]).agg({
+        "quantity": "sum",
+        "total_price": "sum",
 
-# Écrire une fonction create_gender_category_index qui crée un Index composé sur les champs 
-# `prizes.category` (ordre décroissant) et `gender` (ordre croissant) de la collection `laureates`. 
-# Retourner le nom de l’Index créé. 
+    })
+    df_agg = df_agg.map(lambda x: round(x,2) )
+
+    return df_agg
+
+#exercice4 
+# Écrire une fonction columns_multi_index qui prend un DataFrame et reproduit les calculs 
+# d’agrégation de l’exercice précédent, en ajoutant la catégorie en troisième attribut d’agrégation. 
+# Vous devez ensuite pivoter l’index catégorie pour créer des colonnes Multi-Indexé. Arrondir les 
+# résultats à la deuxième décimale.
+
+def columns_multi_index(df: pd.DataFrame) -> pd.DataFrame:
+     df_agg = df.groupby(["year", "region","category"]).agg({"quantity":"sum" ,"total_price":"sum"})
+     df_agg = df_agg.map(lambda x: round(x,2) )
+     df_pivot = df_agg.unstack(level = "category")
+
+     return df_pivot
+
  
-# Écrire une fonction get_gender_category_laureates qui récupère dans la base de données tous 
-# les lauréats qui ont reçu un prix Nobel dans la catégorie donnée et étant du genre pris en 
-# paramètre. Stocker et retourner le résultat dans une liste de dictionnaire.
-def create_gender_category_index(client: MongoClient) :
-    db=client.nobel
-    collection=db.laureates
-    resultat = collection.create_index([("prizes.category", -1), ("gender", 1)])
-    return resultat
+ 
+# Écrire une fonction swap_columns_multi_index qui prends un DataFrame issu de l’exercice 
+# précédent et inverse les colonnes de catégories avec les colonnes « quantity » et « total_price » 
+# de telle sorte que chaque « category » ait en sous-colonne « quantity » et « total_price ». 
+# Retourner le DataFrame résultant. 
 
-def get_gender_category_laureates(client: MongoClient, gender: str, category: str) -> list[dict]:
-    db = client.nobel
-    collection = db.laureates
-    resultat = collection.find({"gender": gender, "prizes.category": category})
-    return list(resultat)
+#exercice5
+def swap_columns_multi_index(df:pd.DataFrame)-> pd.DataFrame:
+    df_pivot = df.swaplevel(axis=1)
+    return df_pivot.sort_index(axis=1)
+
+# Écrire une fonction retrieve_multi_index_columns qui prends un DataFrame issu de l’exercice 
+# précédent. Retourner un DataFrame contenant uniquement les données pour la catégorie 
+# donnée. 
+ 
+# Écrire une fonction retrieve_multi_index_basic qui prends un DataFrame issu de l’exercice 
+# précédent. Retourner un DataFrame contenant uniquement les données pour la catégorie et 
+# l’année donnée. 
+ 
+# Écrire une fonction retrieve_multi_index_advanced qui prends un DataFrame issu de l’exercice 
+# précédent. Retourner un DataFrame contenant uniquement les données pour la région (toute 
+# années confondues) et la sous colonne donnée (« quantity » ou « total_price »).
+#exercice6
+def retrieve_multi_index_column(df: pd.DataFrame, category: str) -> pd.DataFrame:
+    df_category = df.xs(category, axis=1, level="category") 
+    return df_category
+
+def retrieve_multi_index_basic(df: pd.DataFrame , year:int) -> pd.DataFrame :
+    df_year = df[df.index.get_level_values("year")==year]
+    return df_year
+
+#exercice7
+ 
+# Écrire une fonction create_pivot_table_basic prenant en paramètre un DataFrame. En utilisant 
+# la fonction pivot_table, reproduire le DataFrame de l’exercice 4, partie 2. Arrondir les résultats à 
+# la deuxième décimale et retourner le DataFrame résultant. 
 
 
-#exercice4
+def create_pivot_table_basic(df: pd.DataFrame) -> pd.DataFrame:
+    df_pivot = pd.pivot_table(df, index=["year", "region"], columns="category", values=["quantity", "total_price"], aggfunc="sum")
+    df_pivot = df_pivot.unstack(level="category")
+    df_pivot = df_pivot.map(lambda x: round(x, 2))
+    return df_pivot
 
-# Écrire une fonction create_year_category_index qui crée un Index composé unique sur les 
-# champs `year` et `category` de la collection `prizes`. Retourner le nom de l’Index créé.
-def create_year_category_index(client: MongoClient):
-    db = client.nobel
-    collection = db.prizes
-    collection.delete_many({"$or": [{"year": None}, {"category": None}]})
-    index_name = collection.create_index([("year", 1), ("category", 1)], unique=True)
-    
-    return index_name
+def create_pivot_table_advanced(df: pd.DataFrame) -> pd.DataFrame:
+    df_pivot = pd.pivot_table(df, index=["year", "region"], columns="category", values=["quantity", "total_price", "sales"], aggfunc=["sum", "mean"])
+    df_pivot = df_pivot.unstack(level="category")
+    df_pivot = df_pivot.map(lambda x: round(x, 2))
+    return df_pivot
 
 
 
@@ -89,23 +110,20 @@ def create_year_category_index(client: MongoClient):
 
 
 if __name__ == "__main__":
-    #exercice1
-    client=get_mongo_client('localhost', 27017)
-    create_award_year_index(client)
-    print (create_award_year_index(client))
-    #exercice2
-    client=get_mongo_client('localhost', 27017)
-    create_country_index(client)
-    print(create_country_index(client))
-    #exercice3
-    client=get_mongo_client('localhost', 27017)
-    create_gender_category_index(client)
-    print(create_gender_category_index(client))
-
-    #exercice4
-    client=get_mongo_client('localhost', 27017)
-    create_year_category_index(client)
-    print(create_year_category_index(client))
-
-print(get_laureates_year(get_mongo_client('localhost', 27017), 2019))
+    df= pd.read_csv("sales.csv" ,keep_default_na=False, na_values='') 
+    micdf = columns_multi_index(df) 
+    print(micdf)
+    
+    print(micdf.columns)  
+    swapdf = swap_columns_multi_index(micdf)
+    category="Planes"
+    df_category = retrieve_multi_index_column(swapdf, category)
+    print(df_category)
+    year = 2002
+    df_year = retrieve_multi_index_basic(swapdf, year)
+    print(df_year)
  
+    pivot_df = create_pivot_table_basic(df)
+    print(pivot_df)
+
+
